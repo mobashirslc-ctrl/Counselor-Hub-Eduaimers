@@ -77,7 +77,14 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
 }
 
 function Logo({ light = false }: { light?: boolean }) {
-  return <div className={`logo-crop ${light ? 'logo-light' : ''}`}><img src="/assets/eduaimers-logo.png" alt="Eduaimers — Pathway to right goals" /></div>
+  return (
+    <div className={`logo-crop ${light ? 'logo-light' : ''}`}>
+      <img 
+        src="https://res.cloudinary.com/ddziennkh/image/upload/v1792414927/Artboard_2_olhclt.png" 
+        alt="Eduaimers — Pathway to right goals" 
+      />
+    </div>
+  )
 }
 
 function Button({ children, variant = 'primary', icon, onClick, type = 'button', disabled = false, full = false }: {
