@@ -229,16 +229,25 @@ function Sidebar({ page, setPage, open, close, userRole, userName }: { page: Pag
 
 function Header({ page, onMenu, onLogout, tickerText, userName }: { page: Page; onMenu: () => void; onLogout: () => void; tickerText: string; userName: string }) {
   const titles: Record<Page, string> = { dashboard: `Welcome, ${userName}`, training: 'Training Library', knowledge: 'Quick Knowledge Base', quiz: 'Live Quiz Portal', reports: 'Weekly Report', analytics: 'KPI & Analytics', admin: 'Admin Control Panel' }
+  
   return <>
     <style>{`
       @keyframes continuousScroll {
         0% { transform: translateX(0); }
         100% { transform: translateX(-50%); }
       }
-      .ticker-track-running {
-        display: inline-flex;
+      .ticker-container {
+        display: flex;
+        width: 100%;
+        overflow: hidden;
         white-space: nowrap;
-        animation: continuousScroll 35s linear infinite;
+        position: relative;
+      }
+      .ticker-track-running {
+        display: flex;
+        flex-shrink: 0;
+        min-width: 200%;
+        animation: continuousScroll 45s linear infinite;
         font-weight: 800;
         color: #1e3a8a;
       }
@@ -252,16 +261,20 @@ function Header({ page, onMenu, onLogout, tickerText, userName }: { page: Page; 
         align-items: center;
         border-bottom: 1px solid #dbeafe;
       }
+      .ticker-item {
+        padding-right: 50px;
+        display: inline-block;
+      }
     `}</style>
     <div className="ticker ticker-wrapper">
-      <strong style={{ marginRight: '15px', color: '#2563eb', fontWeight: 900 }}>LIVE UPDATE:</strong>
-      <div style={{ overflow: 'hidden', flex: 1, position: 'relative' }}>
+      <strong style={{ marginRight: '15px', color: '#2563eb', fontWeight: 900, flexShrink: 0 }}>LIVE UPDATE:</strong>
+      <div className="ticker-container">
         <div className="ticker-track-running">
-          <span>{tickerText} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-          <span>{tickerText} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+          <span className="ticker-item">{tickerText}</span>
+          <span className="ticker-item">{tickerText}</span>
         </div>
       </div>
-      <span className="ticker-time" style={{ marginLeft: '15px', fontWeight: 'bold' }}>LIVE</span>
+      <span className="ticker-time" style={{ marginLeft: '15px', fontWeight: 'bold', flexShrink: 0 }}>LIVE</span>
     </div>
     <header className="topbar">
       <button className="mobile-menu" onClick={onMenu} aria-label="Open menu"><Icon name="menu" /></button>
