@@ -230,10 +230,38 @@ function Sidebar({ page, setPage, open, close, userRole, userName }: { page: Pag
 function Header({ page, onMenu, onLogout, tickerText, userName }: { page: Page; onMenu: () => void; onLogout: () => void; tickerText: string; userName: string }) {
   const titles: Record<Page, string> = { dashboard: `Welcome, ${userName}`, training: 'Training Library', knowledge: 'Quick Knowledge Base', quiz: 'Live Quiz Portal', reports: 'Weekly Report', analytics: 'KPI & Analytics', admin: 'Admin Control Panel' }
   return <>
-    <div className="ticker">
-      <strong>LIVE UPDATE</strong>
-      <div className="ticker-track"><span>{tickerText}</span></div>
-      <span className="ticker-time">LIVE</span>
+    <style>{`
+      @keyframes continuousScroll {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(-50%); }
+      }
+      .ticker-track-running {
+        display: inline-flex;
+        white-space: nowrap;
+        animation: continuousScroll 35s linear infinite;
+        font-weight: 800;
+        color: #1e3a8a;
+      }
+      .ticker-wrapper {
+        overflow: hidden;
+        width: 100%;
+        position: relative;
+        background: #eff6ff;
+        padding: 8px 16px;
+        display: flex;
+        align-items: center;
+        border-bottom: 1px solid #dbeafe;
+      }
+    `}</style>
+    <div className="ticker ticker-wrapper">
+      <strong style={{ marginRight: '15px', color: '#2563eb', fontWeight: 900 }}>LIVE UPDATE:</strong>
+      <div style={{ overflow: 'hidden', flex: 1, position: 'relative' }}>
+        <div className="ticker-track-running">
+          <span>{tickerText} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+          <span>{tickerText} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; • &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+        </div>
+      </div>
+      <span className="ticker-time" style={{ marginLeft: '15px', fontWeight: 'bold' }}>LIVE</span>
     </div>
     <header className="topbar">
       <button className="mobile-menu" onClick={onMenu} aria-label="Open menu"><Icon name="menu" /></button>
@@ -244,7 +272,6 @@ function Header({ page, onMenu, onLogout, tickerText, userName }: { page: Page; 
     </header>
   </>
 }
-
 function PageHeading({ eyebrow, title, copy, children }: { eyebrow?: string; title: string; copy: string; children?: ReactNode }) {
   return <div className="content-heading"><div>{eyebrow && <span className="eyebrow">{eyebrow}</span>}<h1>{title}</h1><p>{copy}</p></div>{children && <div className="heading-actions">{children}</div>}</div>
 }
