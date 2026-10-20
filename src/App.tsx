@@ -1,6 +1,6 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react'
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, getDocs, doc, setDoc, onSnapshot, getDoc } from "firebase/firestore";
+import { getFirestore, collection, addDoc, getDocs, doc, setDoc, onSnapshot, updateDoc, deleteDoc } from "firebase/firestore";
 
 // Firebase Configuration & Initialization
 const firebaseConfig = {
@@ -12,7 +12,6 @@ const firebaseConfig = {
   appId: "1:724916560626:web:7a0e6e653240267c4b266b",
   measurementId: "G-EN7CY4H1BE"
 };
-
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
@@ -106,30 +105,25 @@ const fallbackMaterials = [
   { country: 'Spain', flag: '🇪🇸', title: 'Spain Application Essentials', meta: '24 pages · Updated today', color: 'gold', fileUrl: '#' },
 ]
 
-function Login({ onLogin }: { onLogin: (userType: 'counselor' | 'admin', name?: string) => void }) {
+function Login({ onLogin }: { onLogin: (userType: 'counselor' | 'admin', name?: string, email?: string) => void }) {
   const [role, setRole] = useState<'counselor' | 'admin'>('counselor')
   const [showPassword, setShowPassword] = useState(false)
-  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
-
     if (role === 'admin') {
-      // Strict Admin Credential Validation
       if (email.trim().toLowerCase() !== 'admin@eduaimers.com' || password !== 'admin2026') {
         alert("Invalid Admin Email or Password! Access Denied.")
         return
       }
-      onLogin('admin', 'Admin Team')
+      onLogin('admin', 'Admin Team', email.trim().toLowerCase())
     } else {
-      // Strict Counselor Credential Validation against Firebase Firestore Database
       if (!email.trim() || !password.trim()) {
         alert("Please enter both Email and Password!")
         return
       }
-
       try {
         const querySnapshot = await getDocs(collection(db, "counselors"))
         const counselorList = querySnapshot.docs.map(d => d.data())
@@ -137,13 +131,11 @@ function Login({ onLogin }: { onLogin: (userType: 'counselor' | 'admin', name?: 
           c.email?.trim().toLowerCase() === email.trim().toLowerCase() && 
           c.password === password
         )
-
         if (!match) {
           alert("Wrong Credentials! No counselor account matches this Email and Password.")
           return
         }
-
-        onLogin('counselor', match.name || name || 'Counselor')
+        onLogin('counselor', match.name || 'Counselor', match.email?.trim().toLowerCase())
       } catch (err) {
         alert("Authentication failed. Please check internet connection.")
       }
@@ -168,7 +160,6 @@ function Login({ onLogin }: { onLogin: (userType: 'counselor' | 'admin', name?: 
         <span className="eyebrow">WELCOME BACK</span>
         <h2>Sign in to your workspace</h2>
         
-        {/* Role Switcher Tabs */}
         <div style={{ display: 'flex', gap: '10px', background: '#f1f5f9', padding: '6px', borderRadius: '8px', margin: '15px 0 20px' }}>
           <button 
             type="button" 
@@ -185,7 +176,6 @@ function Login({ onLogin }: { onLogin: (userType: 'counselor' | 'admin', name?: 
             As Admin Team
           </button>
         </div>
-
         <Field 
           label={role === 'counselor' ? "Counselor Email (Issued by Admin)" : "Admin Email"} 
           type="email" 
@@ -193,7 +183,6 @@ function Login({ onLogin }: { onLogin: (userType: 'counselor' | 'admin', name?: 
           value={email}
           onChange={(v) => setEmail(v)} 
         />
-
         <Field 
           label={role === 'counselor' ? "Password (Issued by Admin)" : "Admin Password"} 
           type={showPassword ? 'text' : 'password'} 
@@ -202,7 +191,6 @@ function Login({ onLogin }: { onLogin: (userType: 'counselor' | 'admin', name?: 
           onChange={(v) => setPassword(v)}
           suffix={<button type="button" className="inline-action" onClick={() => setShowPassword(!showPassword)}>{showPassword ? 'Hide' : 'Show'}</button>} 
         />
-
         <div className="login-options"><label className="check-label"><input type="checkbox" defaultChecked /> Remember me</label></div>
         <Button type="submit" full>Sign in as {role === 'counselor' ? 'Counselor' : 'Admin'} <Icon name="arrow" size={17} /></Button>
       </form>
@@ -269,7 +257,6 @@ function Dashboard({ setPage, openPdf, materials, userName, activeQuiz, reportSe
     { icon: 'target' as IconName, value: '0%', label: 'Monthly KPI', trend: '0%', note: 'this month', tone: 'amber' },
   ]
   const displayList = materials.length > 0 ? materials : fallbackMaterials;
-
   return <div className="page dashboard-page">
     <div className="welcome-band">
       <div>
@@ -282,9 +269,7 @@ function Dashboard({ setPage, openPdf, materials, userName, activeQuiz, reportSe
         </div>
       </div>
     </div>
-
     <div className="stats-grid">{stat.map((item) => <article className="stat-card" key={item.label}><div className={`stat-icon ${item.tone}`}><Icon name={item.icon} /></div><div className="stat-main"><p>{item.label}</p><strong>{item.value}</strong></div><span className={`trend ${item.tone}`}>{item.trend}</span><small>{item.note}</small></article>)}</div>
-
     <div className="dashboard-grid">
       <section className="panel action-panel">
         <div className="panel-head"><div><span className="eyebrow">QUICK ACCESS</span><h3>Training & Knowledge Base</h3></div><button onClick={() => setPage('training')}>View all <Icon name="arrow" size={15} /></button></div>
@@ -293,8 +278,6 @@ function Dashboard({ setPage, openPdf, materials, userName, activeQuiz, reportSe
           <button onClick={() => setPage('reports')}><span className="quick-icon green"><Icon name="report" /></span><span><strong>Weekly Report Window</strong><small>Deadline: {reportSettings?.deadline || 'Oct 27, 2026'} at {reportSettings?.deadlineTime || '18:00'}</small></span><Icon name="chevron" /></button>
         </div>
       </section>
-
-      {/* DYNAMIC UPCOMING SCHEDULE */}
       <aside className="panel schedule-panel">
         <div className="panel-head"><div><span className="eyebrow">SCHEDULE</span><h3>Upcoming Schedule</h3></div><button><Icon name="calendar" size={18} /></button></div>
         <div className="timeline">
@@ -311,7 +294,6 @@ function Dashboard({ setPage, openPdf, materials, userName, activeQuiz, reportSe
           ) : (
             <p style={{ color: '#64748b', fontSize: '14px', padding: '10px 0' }}>No live quizzes scheduled for today.</p>
           )}
-
           <div className="timeline-item">
             <time>{reportSettings?.deadlineTime || '18:00'}</time>
             <i />
@@ -325,7 +307,6 @@ function Dashboard({ setPage, openPdf, materials, userName, activeQuiz, reportSe
         <Button full onClick={() => setPage('quiz')}>Open live quiz portal <Icon name="arrow" size={16} /></Button>
       </aside>
     </div>
-
     <div className="section-head"><div><span className="eyebrow">RESOURCES</span><h3>Latest training guides</h3></div><button onClick={() => setPage('training')}>Browse library <Icon name="arrow" size={15} /></button></div>
     <div className="resource-row">{displayList.slice(0, 3).map((item, idx) => <ResourceCard key={idx} item={item} onClick={() => openPdf(item.title, item.fileUrl)} />)}</div>
   </div>
@@ -339,7 +320,6 @@ function Training({ openPdf, materials }: { openPdf: (title: string, url?: strin
   const [query, setQuery] = useState('')
   const sourceList = materials.length > 0 ? materials : fallbackMaterials;
   const filtered = sourceList.filter((item) => `${item.country || ''} ${item.title || ''}`.toLowerCase().includes(query.toLowerCase()))
-
   return <div className="page">
     <PageHeading eyebrow="LEARNING CENTER" title="Training Library" copy="Build country expertise with the latest counselor guides." />
     <div className="filter-bar"><label className="filter-search"><Icon name="search" /><input placeholder="Search training materials..." value={query} onChange={(e) => setQuery(e.target.value)} /></label><span className="result-count">{filtered.length} resources</span></div>
@@ -348,31 +328,77 @@ function Training({ openPdf, materials }: { openPdf: (title: string, url?: strin
   </div>
 }
 
-const knowledgeDocs = [
-  { icon: 'users' as IconName, title: 'MOI Accepted Country & University List', copy: 'Verified English-medium acceptance policies across partner universities.', tone: 'blue', updated: 'Updated Oct 24' },
-  { icon: 'file' as IconName, title: 'Spouse Allowed Flight Countries', copy: 'Country-by-country dependent and spouse travel eligibility.', tone: 'purple', updated: 'Updated Oct 18' },
-  { icon: 'check' as IconName, title: 'Visa Checklist', copy: 'Complete embassy documentation checklist for your selected country.', tone: 'green', updated: 'Updated today' },
-  { icon: 'arrow' as IconName, title: 'Application-to-Visa Step Flowchart', copy: 'Visual process from first counseling session through visa grant.', tone: 'amber', updated: 'Updated Oct 21' },
-]
+const KNOWLEDGE_CATEGORIES = [
+  { id: 'moi', badgeNumber: '01', title: 'MOI Accepted Country & University List', description: 'Verified English-medium acceptance policies across partner universities.' },
+  { id: 'spouse', badgeNumber: '02', title: 'Spouse Allowed Flight Countries', description: 'Country-by-country dependent and spouse travel eligibility.' },
+  { id: 'visa', badgeNumber: '03', title: 'Visa Checklist', description: 'Complete embassy documentation checklist for your selected country.' },
+  { id: 'flowchart', badgeNumber: '04', title: 'Application-to-Visa Step Flowchart', description: 'Visual process from first counseling session through visa grant.' },
+];
 
-function Knowledge({ openPdf }: { openPdf: (title: string) => void }) {
+function Knowledge({ kbDocuments }: { kbDocuments: any[] }) {
+  const [searchQuery, setSearchQuery] = useState('')
+
   return <div className="page">
-    <PageHeading eyebrow="QUICK REFERENCE" title="Knowledge Base" copy="Direct access to standard operating documents during counseling sessions." />
-    <div className="knowledge-grid">{knowledgeDocs.map((doc, index) => <button className="knowledge-card" key={doc.title} onClick={() => openPdf(doc.title)}><div className={`knowledge-icon ${doc.tone}`}><Icon name={doc.icon} size={26} /></div><div className="pdf-badge">PDF</div><span>0{index + 1}</span><h3>{doc.title}</h3><p>{doc.copy}</p><footer><small>{doc.updated}</small><b>Open PDF <Icon name="arrow" size={15} /></b></footer></button>)}</div>
+    <PageHeading eyebrow="QUICK REFERENCE" title="Knowledge Base" copy="Direct access to standard operating documents and guidelines." />
+    
+    <div className="filter-bar" style={{ marginBottom: '24px' }}>
+      <label className="filter-search">
+        <Icon name="search" />
+        <input placeholder="Search resources, countries..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+      </label>
+    </div>
+
+    <div className="knowledge-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+      {KNOWLEDGE_CATEGORIES.map((cat) => {
+        const catPdfs = kbDocuments.filter(d => 
+          d.categoryId === cat.id && 
+          d.title.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+
+        return (
+          <div className="panel" key={cat.id} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'between', position: 'relative', padding: '24px' }}>
+            <span className="pdf-badge" style={{ position: 'absolute', top: '20px', right: '20px', background: '#fee2e2', color: '#ef4444', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>PDF</span>
+            
+            <div>
+              <span style={{ fontSize: '32px', fontWeight: 'extrabold', color: '#cbd5e1', display: 'block', marginBottom: '10px' }}>{cat.badgeNumber}</span>
+              <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px', color: '#1e293b' }}>{cat.title}</h3>
+              <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '16px' }}>{cat.description}</p>
+            </div>
+
+            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px', marginTop: 'auto' }}>
+              {catPdfs.length === 0 ? (
+                <p style={{ fontSize: '12px', color: '#94a3b8' }}>No PDFs uploaded in this section yet.</p>
+              ) : (
+                catPdfs.map((pdf: any) => (
+                  <div key={pdf.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', marginBottom: '6px' }}>
+                    <span style={{ fontWeight: 500, color: '#334155', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pdf.title}</span>
+                    <a 
+                      href={pdf.pdfUrl} 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      style={{ color: '#2563eb', fontWeight: 600, textDecoration: 'none' }}
+                    >
+                      Open PDF →
+                    </a>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   </div>
 }
 
 function Timer({ seconds, onTimeUp }: { seconds: number; onTimeUp: () => void }) {
   const [timeLeft, setTimeLeft] = useState(seconds)
-
   useEffect(() => { setTimeLeft(seconds) }, [seconds])
-
   useEffect(() => {
     if (timeLeft <= 0) { onTimeUp(); return }
     const id = window.setInterval(() => setTimeLeft((t) => t - 1), 1000)
     return () => window.clearInterval(id)
   }, [timeLeft, onTimeUp])
-
   const hours = Math.floor(timeLeft / 3600)
   const mins = Math.floor((timeLeft % 3600) / 60)
   const secs = timeLeft % 60
@@ -380,17 +406,17 @@ function Timer({ seconds, onTimeUp }: { seconds: number; onTimeUp: () => void })
   return <div className="timer">{unit(hours, 'HRS')}<span>:</span>{unit(mins, 'MIN')}<span>:</span>{unit(secs, 'SEC')}</div>
 }
 
-function Quiz({ activeQuiz, counselorName, onScoreSubmit }: { activeQuiz: any; counselorName: string; onScoreSubmit: (scoreStr: string) => void }) {
+function Quiz({ activeQuiz, counselorEmail, userName, onScoreSubmit }: { activeQuiz: any; counselorEmail: string; userName: string; onScoreSubmit: (scoreStr: string, scoreData: any) => void }) {
   const [submitted, setSubmitted] = useState(false)
   const [answers, setAnswers] = useState<Record<string, any>>({})
   const [scoreData, setScoreData] = useState<{ correct: number; total: number; percentage: number; pointsEarned: number; totalPoints: number } | null>(null)
   const [now, setNow] = useState(new Date())
   const [isBlocked, setIsBlocked] = useState(false)
 
-  // Real-time Firestore Sync to ensure permanent lock even after Logout/Login
   useEffect(() => {
-    if (!counselorName) return
-    const docRef = doc(db, "quiz_attempts", counselorName)
+    if (!counselorEmail && !userName) return
+    const key = (counselorEmail || userName).toLowerCase().trim()
+    const docRef = doc(db, "quiz_attempts", key)
     const unsub = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists() && docSnap.data().submitted) {
         setIsBlocked(true)
@@ -404,7 +430,7 @@ function Quiz({ activeQuiz, counselorName, onScoreSubmit }: { activeQuiz: any; c
       }
     })
     return () => unsub()
-  }, [counselorName])
+  }, [counselorEmail, userName])
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000)
@@ -414,15 +440,8 @@ function Quiz({ activeQuiz, counselorName, onScoreSubmit }: { activeQuiz: any; c
   const targetDateStr = activeQuiz?.startDate ? `${activeQuiz.startDate}T${activeQuiz?.startTime || '00:00'}:00` : null
   const quizStartTime = targetDateStr ? new Date(targetDateStr) : null
   const isUnlocked = !quizStartTime || now >= quizStartTime
-
   const timerLimitMinutes = Number(activeQuiz?.timer || 20)
-  const [testTimeLeft, setTestTimeLeft] = useState(timerLimitMinutes * 60)
-
-  useEffect(() => {
-    if (activeQuiz?.timer) {
-      setTestTimeLeft(Number(activeQuiz.timer) * 60)
-    }
-  }, [activeQuiz])
+  const [testTimeLeft] = useState(timerLimitMinutes * 60)
 
   const rawQuestions = activeQuiz?.questions && activeQuiz.questions.length > 0 ? activeQuiz.questions : [
     { text: 'What is the updated minimum maintenance period for UK student visa funds?', type: 'mcq', options: ['28 consecutive days', '30 calendar days', '21 working days', '90 consecutive days'], answerKey: '28 consecutive days', points: 2 },
@@ -446,12 +465,10 @@ function Quiz({ activeQuiz, counselorName, onScoreSubmit }: { activeQuiz: any; c
     
     let earnedPoints = 0
     let totalPoints = 0
-
     questionsList.forEach((q: any, i: number) => {
       const qPoints = Number(q.points || 2)
       totalPoints += qPoints
       const userAns = answers[`q${i}`]
-
       if (q.type === 'mcq' || q.type === 'short') {
         if (userAns && String(userAns).trim().toLowerCase() === String(q.answerKey || '').trim().toLowerCase()) {
           earnedPoints += qPoints
@@ -465,34 +482,42 @@ function Quiz({ activeQuiz, counselorName, onScoreSubmit }: { activeQuiz: any; c
         }
       }
     })
-
     const percentage = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0
     const finalScoreStr = `${percentage}% (${earnedPoints}/${totalPoints} Pts)`
     const newScoreData = { correct: earnedPoints, total: totalPoints, percentage, pointsEarned: earnedPoints, totalPoints }
-
     setScoreData(newScoreData)
     setSubmitted(true)
     setIsBlocked(true)
 
-    // Save submission permanently to Firebase Database so it persists across logouts
+    const key = (counselorEmail || userName).toLowerCase().trim()
+
     try {
-      await setDoc(doc(db, "quiz_attempts", counselorName), {
+      await setDoc(doc(db, "quiz_attempts", key), {
         submitted: true,
         scoreStr: finalScoreStr,
         scoreData: newScoreData,
-        submittedAt: new Date()
+        submittedAt: new Date().toLocaleString()
       })
+
+      const counselorSnap = await getDocs(collection(db, "counselors"))
+      const found = counselorSnap.docs.find(d => {
+        const data = d.data()
+        return (data.email && data.email.toLowerCase().trim() === key) || (data.name && data.name.toLowerCase().trim() === userName.toLowerCase().trim())
+      })
+      if (found) {
+        await updateDoc(doc(db, "counselors", found.id), {
+          score: finalScoreStr
+        })
+      }
     } catch (err) {
       console.error("Failed to save quiz attempt to cloud:", err)
     }
-
-    onScoreSubmit(finalScoreStr)
+    onScoreSubmit(finalScoreStr, newScoreData)
   }
 
   if (isBlocked && submitted) {
-    return <QuizResults scoreData={scoreData} quizTitle={activeQuiz?.title} userName={counselorName} />
+    return <QuizResults scoreData={scoreData} quizTitle={activeQuiz?.title} userName={userName} />
   }
-
   if (isBlocked && !submitted) {
     return <div className="page quiz-page">
       <PageHeading eyebrow="WEEKLY KNOWLEDGE CHECK" title={activeQuiz?.title || "Live Quiz Portal"} copy="Attempt Restriction"><span className="status-pill" style={{ background: '#ef4444' }}><i /> ALREADY SUBMITTED & LOCKED</span></PageHeading>
@@ -503,14 +528,12 @@ function Quiz({ activeQuiz, counselorName, onScoreSubmit }: { activeQuiz: any; c
       </div>
     </div>
   }
-
   if (!isUnlocked && quizStartTime) {
     const diffMs = quizStartTime.getTime() - now.getTime()
-    const diffSecs = Math.floor(diffMs / 1000)
+    const diffSecs = Math.max(0, Math.floor(diffMs / 1000))
     const hours = Math.floor(diffSecs / 3600)
     const mins = Math.floor((diffSecs % 3600) / 60)
     const secs = diffSecs % 60
-
     return <div className="page quiz-page">
       <PageHeading eyebrow="WEEKLY KNOWLEDGE CHECK" title={activeQuiz?.title || "Upcoming Live Quiz"} copy="Scheduled Examination Portal"><span className="status-pill" style={{ background: '#f59e0b' }}><i /> LOCKED UNTIL SCHEDULED TIME</span></PageHeading>
       <div className="panel" style={{ padding: '40px', textAlign: 'center', marginTop: '30px' }}>
@@ -555,7 +578,6 @@ function Quiz({ activeQuiz, counselorName, onScoreSubmit }: { activeQuiz: any; c
                 })}
               </>
             )}
-
             {q.type === 'checkbox' && (
               <>
                 <p className="question-type">Select all that apply (Multiple answers)</p>
@@ -580,7 +602,6 @@ function Quiz({ activeQuiz, counselorName, onScoreSubmit }: { activeQuiz: any; c
                 })}
               </>
             )}
-
             {q.type === 'short' && (
               <>
                 <p className="question-type">Short answer text</p>
@@ -604,14 +625,41 @@ function Quiz({ activeQuiz, counselorName, onScoreSubmit }: { activeQuiz: any; c
 
 function QuizResults({ scoreData, quizTitle, userName }: { scoreData: any; quizTitle?: string; userName: string }) {
   const downloadScoreCardPDF = () => {
-    const reportContent = `========================================\n        EDUAIMERS COUNSELOR HUB\n          OFFICIAL SCORE CARD\n========================================\nQuiz Title : ${quizTitle || "Live Assessment"}\nCandidate  : ${userName}\nDate       : ${new Date().toLocaleDateString()}\n----------------------------------------\nTotal Percentage : ${scoreData?.percentage}%\nPoints Secured   : ${scoreData?.pointsEarned} / ${scoreData?.totalPoints}\nStatus           : SUCCESSFULLY EVALUATED\n========================================\nVerified by Eduaimers Academic System`;
-    
-    const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Eduaimers-Quiz-ScoreCard-${new Date().toISOString().slice(0,10)}.txt`;
-    link.click();
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Eduaimers - Score Card - ${userName}</title>
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #0F172A; background: #FFF; }
+          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #2563EB; padding-bottom: 20px; }
+          .logo { height: 50px; }
+          .title { font-size: 22px; font-weight: bold; color: #1E3A8A; }
+          .box { background: #F8FAFC; border: 1px solid #E2E8F0; padding: 25px; border-radius: 12px; margin-top: 30px; }
+          .score { font-size: 36px; font-weight: 800; color: #2563EB; margin: 15px 0; }
+          .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #64748B; border-top: 1px solid #E2E8F0; padding-top: 20px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <img src="https://res.cloudinary.com/ddziennkh/image/upload/v1792414927/Artboard_2_olhclt.png" class="logo" />
+          <div class="title">OFFICIAL QUIZ SCORE CARD</div>
+        </div>
+        <div class="box">
+          <h2>Candidate: ${userName}</h2>
+          <p><strong>Quiz Title:</strong> ${quizTitle || "Live Assessment"}</p>
+          <p><strong>Evaluation Date:</strong> ${new Date().toLocaleDateString()}</p>
+          <div class="score">${scoreData?.percentage}% Score</div>
+          <p><strong>Points Earned:</strong> ${scoreData?.pointsEarned} / ${scoreData?.totalPoints} Total Points</p>
+        </div>
+        <div class="footer">Verified & Issued by Eduaimers Academic Portal</div>
+        <script>window.onload = function() { window.print(); }</script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
   }
 
   return <div className="page">
@@ -636,15 +684,13 @@ const reportMetrics = [
   ['Offers received', '0'], ['Visas granted', '0'], ['Revenue / Sales (BDT)', '0'],
 ]
 
-function Reports({ reportSettings, onReportSubmit, userName }: { reportSettings: any; onReportSubmit: (data: any) => void; userName: string }) {
+function Reports({ reportSettings, onReportSubmit, userName, counselorEmail }: { reportSettings: any; onReportSubmit: (data: any, pdfUrl: string, fileName: string) => void; userName: string; counselorEmail: string }) {
   const [preview, setPreview] = useState(false)
   const [now, setNow] = useState(new Date())
-
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
-
   const deadlineStr = reportSettings?.deadline ? `${reportSettings.deadline}T${reportSettings?.deadlineTime || '23:59'}:00` : null
   const deadlineDate = deadlineStr ? new Date(deadlineStr) : null
   
@@ -652,7 +698,6 @@ function Reports({ reportSettings, onReportSubmit, userName }: { reportSettings:
   const isForceOpened = reportSettings?.isOpen === true
   
   const isClosed = isForceClosed ? true : isForceOpened ? false : (deadlineDate ? now > deadlineDate : false)
-
   const [metricsData, setMetricsData] = useState<Record<string, string>>({
     'Total calls made': '0', 'Connected calls': '0', 'Interested leads': '0', 'Pending follow-ups': '0',
     'Office visits scheduled': '0', 'Office visits attended': '0', 'Files opened': '0', 'Applications submitted': '0',
@@ -695,22 +740,136 @@ function Reports({ reportSettings, onReportSubmit, userName }: { reportSettings:
       <section><div className="form-section-title"><span>03</span><div><h3>Insights & next actions</h3><p>Add context behind this week’s numbers.</p></div></div><div className="text-form-grid"><label className="field"><span>Lead rejection reasons</span><textarea placeholder="Enter lead rejection reasons..." /></label><label className="field"><span>Top recovery actions</span><textarea placeholder="Enter recovery actions..." /></label><label className="field"><span>Next 7-day targets</span><textarea placeholder="Enter next 7-day targets..." /></label></div></section>
       <footer className="form-footer"><p><Icon name="check" size={16} /> Draft saved automatically</p><Button type="submit">Confirm & submit report <Icon name="arrow" size={16} /></Button></footer>
     </form>
-    {preview && <ReportPreview metrics={metricsData} userName={userName} onClose={() => setPreview(false)} onSubmitSuccess={() => {
-      onReportSubmit(metricsData)
+    {preview && <ReportPreview metrics={metricsData} userName={userName} counselorEmail={counselorEmail} onClose={() => setPreview(false)} onSubmitSuccess={(pdfUrl, fileName) => {
+      onReportSubmit(metricsData, pdfUrl, fileName)
       setPreview(false)
-      alert("Report submitted successfully and sent to Admin for approval!")
+      alert("Report submitted successfully and saved to your history & Admin panel!")
     }} />}
   </div>
 }
 
-function ReportPreview({ metrics, userName, onClose, onSubmitSuccess }: { metrics: any; userName: string; onClose: () => void; onSubmitSuccess: () => void }) {
-  const download = () => {
-    const content = `EDUAIMERS COUNSELOR WEEKLY REPORT\n${userName} | Oct 19 - Oct 25, 2026\n\nCalls: ${metrics['Total calls made']} | Connected: ${metrics['Connected calls']} | Interested: ${metrics['Interested leads']}\nFiles opened: ${metrics['Files opened']} | Applications: ${metrics['Applications submitted']} | Revenue: BDT ${metrics['Revenue / Sales (BDT)']}`
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(new Blob([content], { type: 'text/plain' }))
-    link.download = 'Eduaimers-Weekly-Report.txt'
-    link.click()
+function ReportPreview({ metrics, userName, counselorEmail, onClose, onSubmitSuccess }: { metrics: any; userName: string; counselorEmail: string; onClose: () => void; onSubmitSuccess: (url: string, name: string) => void }) {
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleFinalSubmit = async () => {
+    setSubmitting(true)
+    const dateStamp = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    
+    // Encoded HTML representation with Eduaimers logo and design structure
+    const reportDocHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Eduaimers Weekly Performance Report</title>
+        <style>
+          @page { size: A4; margin: 15mm; }
+          body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1E293B; margin: 0; padding: 25px; background: #FFF; }
+          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #2563EB; padding-bottom: 20px; margin-bottom: 25px; }
+          .logo { height: 55px; }
+          .header-title { text-align: right; }
+          .header-title h2 { margin: 0; color: #1E3A8A; font-size: 20px; text-transform: uppercase; letter-spacing: 1px; }
+          .header-title p { margin: 4px 0 0; color: #64748B; font-size: 12px; }
+          
+          .info-card { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 15px 20px; display: flex; justify-content: space-between; margin-bottom: 25px; }
+          .info-item small { display: block; color: #64748B; font-size: 11px; text-transform: uppercase; font-weight: bold; }
+          .info-item strong { font-size: 15px; color: #0F172A; }
+          
+          .section-heading { font-size: 14px; font-weight: bold; color: #2563EB; text-transform: uppercase; margin-bottom: 12px; border-left: 4px solid #2563EB; padding-left: 8px; }
+          
+          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+          th { background: #1E3A8A; color: #FFFFFF; text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+          td { border-bottom: 1px solid #E2E8F0; padding: 10px 14px; font-size: 13px; color: #334155; }
+          tr:nth-child(even) td { background: #F8FAFC; }
+          
+          .footer { position: fixed; bottom: 20px; left: 25px; right: 25px; text-align: center; border-top: 1px solid #E2E8F0; padding-top: 12px; font-size: 11px; color: #94A3B8; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <img src="https://res.cloudinary.com/ddziennkh/image/upload/v1792414927/Artboard_2_olhclt.png" class="logo" />
+          <div class="header-title">
+            <h2>WEEKLY PERFORMANCE REPORT</h2>
+            <p>EDUAIMERS COUNSELOR HUB</p>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <div class="info-item"><small>Counselor</small><strong>${userName}</strong></div>
+          <div class="info-item"><small>Email</small><strong>${counselorEmail}</strong></div>
+          <div class="info-item"><small>Reporting Date</small><strong>${dateStamp}</strong></div>
+          <div class="info-item"><small>Location</small><strong>Dhaka, BD</strong></div>
+        </div>
+
+        <div class="section-heading">01. Activity & Conversion Metrics</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Performance Key Indicator</th>
+              <th style="text-align: right;">Reported Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${Object.entries(metrics).map(([key, val]) => `
+              <tr>
+                <td><strong>${key}</strong></td>
+                <td style="text-align: right; font-weight: bold; color: #2563EB;">${val}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          Eduaimers Study Abroad Agency • House-12, 2nd Floor, Ring Road, Shyamoli, Dhaka-1207 • Official Internal Document
+        </div>
+      </body>
+      </html>
+    `;
+
+    const fileName = `Weekly-Report-${userName.replace(/\s+/g, '-')}-${Date.now()}.html`
+    const generatedPdfUrl = `data:text/html;charset=utf-8,${encodeURIComponent(reportDocHtml)}`
+
+    try {
+      const reportItem = {
+        id: Date.now().toString(),
+        weekEndingDate: dateStamp,
+        pdfUrl: generatedPdfUrl,
+        fileName: fileName,
+        submittedAt: new Date().toLocaleString(),
+        metrics
+      }
+
+      const counselorSnap = await getDocs(collection(db, "counselors"))
+      const cleanUserEmail = (counselorEmail || '').trim().toLowerCase()
+      const foundDoc = counselorSnap.docs.find(d => {
+        const dEmail = (d.data().email || '').trim().toLowerCase()
+        const dName = (d.data().name || '').trim().toLowerCase()
+        return dEmail === cleanUserEmail || (dName && dName === userName.trim().toLowerCase())
+      })
+
+      if (foundDoc) {
+        const existingData = foundDoc.data()
+        const history = existingData.reportsHistory || []
+        await updateDoc(doc(db, "counselors", foundDoc.id), {
+          reportsHistory: [reportItem, ...history]
+        })
+      } else {
+        await setDoc(doc(db, "counselors", cleanUserEmail || userName.toLowerCase().replace(/\s+/g, '_')), {
+          name: userName,
+          email: cleanUserEmail,
+          reportsHistory: [reportItem]
+        }, { merge: true })
+      }
+
+      onSubmitSuccess(generatedPdfUrl, fileName)
+    } catch (e) {
+      console.error("Error saving report history:", e)
+      onSubmitSuccess(generatedPdfUrl, fileName)
+    } finally {
+      setSubmitting(false)
+    }
   }
+
   return <div className="modal-layer">
     <button className="modal-scrim" onClick={onClose} aria-label="Close preview" />
     <div className="report-modal">
@@ -720,7 +879,7 @@ function ReportPreview({ metrics, userName, onClose, onSubmitSuccess }: { metric
         <div className="paper-person"><span className="avatar">{userName ? userName.slice(0, 2).toUpperCase() : 'CU'}</span><div><small>COUNSELOR</small><strong>{userName}</strong></div><span><small>TEAM</small><strong>Bangladesh</strong></span></div>
         <div className="paper-metrics">{[[metrics['Total calls made'], 'Total calls'], [metrics['Connected calls'], 'Connected'], [metrics['Interested leads'], 'Interested leads'], [metrics['Files opened'], 'Files opened'], [metrics['Applications submitted'], 'Applications'], [`৳${metrics['Revenue / Sales (BDT)']}`, 'Revenue']].map(([v, l]) => <div key={l}><strong>{v}</strong><span>{l}</span></div>)}</div>
       </div>
-      <footer><Button variant="secondary" onClick={onClose}>Back to edit</Button><Button icon="download" onClick={download}>Download TXT</Button><Button onClick={onSubmitSuccess}>Submit to Admin</Button></footer>
+      <footer><Button variant="secondary" onClick={onClose}>Back to edit</Button><Button onClick={handleFinalSubmit} disabled={submitting}>{submitting ? 'Submitting...' : 'Submit to Admin'}</Button></footer>
     </div>
   </div>
 }
@@ -734,15 +893,151 @@ function Analytics() {
   </div>
 }
 
-function Admin({ materials, tickerText, setTickerText, activeQuiz, teamScores, setTeamScores, onGrantAccess, reportSettings, setReportSettings, onUpdateReportStatus }: { materials: any[]; tickerText: string; setTickerText: (s: string) => void; activeQuiz: any; teamScores: any[]; setTeamScores: any; onGrantAccess: (counselorName: string) => void; reportSettings: any; setReportSettings: (s: any) => void; onUpdateReportStatus: (counselorName: string, status: string) => void }) {
-  const [tab, setTab] = useState<'announcement' | 'resources' | 'quiz' | 'reports_admin' | 'team'>('announcement')
+function CounselorDetailModal({ counselor, onClose }: { counselor: any; onClose: () => void }) {
+  const [activeTab, setActiveTab] = useState<'reports' | 'quizzes' | string>('reports')
+  const [customTabs, setCustomTabs] = useState<string[]>(['performance_notes'])
+  const [newTabName, setNewTabName] = useState('')
+
+  const handleAddTab = () => {
+    if (!newTabName.trim()) return
+    setCustomTabs([...customTabs, newTabName.trim().toLowerCase().replace(/\s+/g, '_')])
+    setNewTabName('')
+  }
+
+  const historyList = counselor.reportsHistory || []
+
+  return <div className="modal-layer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <button className="modal-scrim" onClick={onClose} />
+    <div className="panel" style={{ width: '900px', maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto', zIndex: 100, background: '#fff', padding: '30px', borderRadius: '16px' }}>
+      <div className="flex justify-between items-center border-b pb-4 mb-4" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold' }}>{counselor.name}</h2>
+          <p style={{ fontSize: '13px', color: '#64748b' }}>{counselor.email} | Counselor Profile</p>
+        </div>
+        <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: '22px', cursor: 'pointer' }}>✕</button>
+      </div>
+
+      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #e2e8f0', marginBottom: '20px', paddingBottom: '10px', overflowX: 'auto' }}>
+        <button 
+          onClick={() => setActiveTab('reports')} 
+          style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: activeTab === 'reports' ? '#2563eb' : '#f1f5f9', color: activeTab === 'reports' ? '#fff' : '#475569', fontWeight: 'bold', cursor: 'pointer' }}
+        >
+          Weekly Reports History ({historyList.length})
+        </button>
+        <button 
+          onClick={() => setActiveTab('quizzes')} 
+          style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: activeTab === 'quizzes' ? '#2563eb' : '#f1f5f9', color: activeTab === 'quizzes' ? '#fff' : '#475569', fontWeight: 'bold', cursor: 'pointer' }}
+        >
+          Quiz Attempts History
+        </button>
+        
+        {customTabs.map(tabKey => (
+          <button 
+            key={tabKey}
+            onClick={() => setActiveTab(tabKey)}
+            style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: activeTab === tabKey ? '#2563eb' : '#f1f5f9', color: activeTab === tabKey ? '#fff' : '#475569', fontWeight: 'bold', textTransform: 'capitalize', cursor: 'pointer' }}
+          >
+            {tabKey.replace(/_/g, ' ')}
+          </button>
+        ))}
+
+        <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto', alignItems: 'center' }}>
+          <input 
+            type="text" 
+            placeholder="New tab..." 
+            value={newTabName}
+            onChange={(e) => setNewTabName(e.target.value)}
+            style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+          />
+          <button onClick={handleAddTab} style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }}>+ Add Tab</button>
+        </div>
+      </div>
+
+      {activeTab === 'reports' && (
+        <div>
+          <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>All Submitted Weekly Reports</h3>
+          {historyList.length === 0 ? (
+            <p style={{ color: '#64748b', fontSize: '14px' }}>No weekly reports submitted yet by this counselor.</p>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', textAlign: 'left' }}>
+                  <th style={{ padding: '10px', border: '1px solid #e2e8f0' }}>Week Ending</th>
+                  <th style={{ padding: '10px', border: '1px solid #e2e8f0' }}>File Name</th>
+                  <th style={{ padding: '10px', border: '1px solid #e2e8f0' }}>Submitted Date</th>
+                  <th style={{ padding: '10px', border: '1px solid #e2e8f0' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historyList.map((rep: any, idx: number) => (
+                  <tr key={idx}>
+                    <td style={{ padding: '10px', border: '1px solid #e2e8f0' }}>{rep.weekEndingDate}</td>
+                    <td style={{ padding: '10px', border: '1px solid #e2e8f0' }}>{rep.fileName}</td>
+                    <td style={{ padding: '10px', border: '1px solid #e2e8f0' }}>{rep.submittedAt}</td>
+                    <td style={{ padding: '10px', border: '1px solid #e2e8f0' }}>
+                      <button 
+                        onClick={() => {
+                          const printWin = window.open('', '_blank');
+                          if (printWin) {
+                            const rawDoc = decodeURIComponent((rep.pdfUrl || '').replace('data:text/html;charset=utf-8,', ''));
+                            printWin.document.write(rawDoc);
+                            printWin.document.close();
+                          }
+                        }} 
+                        style={{ color: '#2563eb', fontWeight: 'bold', border: 'none', background: 'none', cursor: 'pointer' }}
+                      >
+                        Open Official Report →
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'quizzes' && (
+        <div>
+          <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>Quiz Attempt Status</h3>
+          <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+            <p style={{ fontSize: '15px' }}><strong>Latest Quiz Score:</strong> {counselor.score || 'Not Attempted'}</p>
+          </div>
+        </div>
+      )}
+
+      {!['reports', 'quizzes'].includes(activeTab) && (
+        <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 'bold', textTransform: 'capitalize', marginBottom: '8px' }}>{activeTab.replace(/_/g, ' ')}</h3>
+          <p style={{ fontSize: '14px', color: '#64748b' }}>Custom section data and counselor notes can be managed here.</p>
+        </div>
+      )}
+    </div>
+  </div>
+}
+
+function Admin({ 
+  materials, tickerText, setTickerText, activeQuiz, teamScores, setTeamScores, onGrantAccess, 
+  reportSettings, setReportSettings, onUpdateReportStatus, kbDocuments 
+}: any) {
+  const [tab, setTab] = useState<'announcement' | 'resources' | 'knowledge_admin' | 'quiz' | 'reports_admin' | 'team'>('announcement')
   const [published, setPublished] = useState('')
   
   const [announcementText, setAnnouncementText] = useState(tickerText)
+  
   const [quizTitle, setQuizTitle] = useState(activeQuiz?.title || "Spain & UK Visa Updates")
   const [quizStartDate, setQuizStartDate] = useState(activeQuiz?.startDate || "2026-10-31")
   const [quizStartTime, setQuizStartTime] = useState(activeQuiz?.startTime || "15:00")
   const [quizTimer, setQuizTimer] = useState(activeQuiz?.timer || "20")
+
+  useEffect(() => {
+    if (activeQuiz) {
+      if (activeQuiz.title) setQuizTitle(activeQuiz.title)
+      if (activeQuiz.startDate) setQuizStartDate(activeQuiz.startDate)
+      if (activeQuiz.startTime) setQuizStartTime(activeQuiz.startTime)
+      if (activeQuiz.timer) setQuizTimer(activeQuiz.timer)
+    }
+  }, [activeQuiz])
   
   const [questionsList, setQuestionsList] = useState<any[]>(
     activeQuiz?.questions || [
@@ -750,10 +1045,26 @@ function Admin({ materials, tickerText, setTickerText, activeQuiz, teamScores, s
       { text: 'Which documents support Spain IPREM proof?', type: 'checkbox', options: ['Personal bank statement', 'Property valuation only', 'Confirmed scholarship letter', 'Sponsor affidavit'], answerKey: ['Personal bank statement', 'Confirmed scholarship letter', 'Sponsor affidavit'], points: 3 }
     ]
   )
-
   const [newCounselorName, setNewCounselorName] = useState('')
   const [newCounselorEmail, setNewCounselorEmail] = useState('')
   const [newCounselorPass, setNewCounselorPass] = useState('')
+
+  const [selectedKbCategory, setSelectedKbCategory] = useState<'moi' | 'spouse' | 'visa' | 'flowchart' | 'training'>('moi')
+  const [kbTitle, setKbTitle] = useState('')
+  const [kbPdfUrl, setKbPdfUrl] = useState('')
+  const [kbPdfFile, setKbPdfFile] = useState<File | null>(null)
+  const [kbUploading, setKbUploading] = useState(false)
+  const [editingKbId, setEditingKbId] = useState<string | null>(null)
+
+  const [countryName, setCountryName] = useState('')
+  const [docTitle, setDocTitle] = useState('')
+  const [manualPdfUrl, setManualPdfUrl] = useState('')
+  const [pdfFile, setPdfFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null)
+
+  const CLOUD_NAME = "ddziennkh"
+  const UPLOAD_PRESET = "eduaimers_pdf_preset"
 
   const handleOnboardCounselor = async (e: FormEvent) => {
     e.preventDefault()
@@ -761,37 +1072,102 @@ function Admin({ materials, tickerText, setTickerText, activeQuiz, teamScores, s
       alert("Please fill Name, Email, and Password!")
       return
     }
-
+    const cleanMail = newCounselorEmail.trim().toLowerCase()
     try {
-      // Onboard and Save credentials in Firebase Cloud Firestore
-      await setDoc(doc(db, "counselors", newCounselorEmail.trim().toLowerCase()), {
+      await setDoc(doc(db, "counselors", cleanMail), {
         name: newCounselorName.trim(),
-        email: newCounselorEmail.trim().toLowerCase(),
+        email: cleanMail,
         password: newCounselorPass.trim(),
+        reportsHistory: [],
         createdAt: new Date()
       })
-
-      const initials = newCounselorName.split(' ').map(n => n[0]).join('').toUpperCase()
-      setTeamScores((prev: any[]) => [...prev, { name: newCounselorName, avatar: initials, score: 'Not Attempted', reportStatus: 'Pending' }])
-      setPublished(`Counselor ${newCounselorName} onboarded and saved to Cloud successfully! Credentials issued.`)
+      const initials = newCounselorName.split(' ').map((n: string) => n[0]).join('').toUpperCase()
+      setTeamScores((prev: any[]) => [...prev, { name: newCounselorName, email: cleanMail, avatar: initials, score: 'Not Attempted', reportStatus: 'Pending', reportsHistory: [] }])
+      setPublished(`Counselor ${newCounselorName} onboarded successfully!`)
       setNewCounselorName('')
       setNewCounselorEmail('')
       setNewCounselorPass('')
     } catch (err) {
-      alert("Failed to onboard counselor to Firebase cloud.")
+      alert("Failed to onboard counselor.")
+    }
+  }
+
+  const handleSaveKbPdf = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!kbTitle.trim()) {
+      alert("Please enter PDF Document Title!")
+      return
+    }
+
+    setKbUploading(true)
+    try {
+      let finalUrl = kbPdfUrl
+
+      if (kbPdfFile) {
+        const formData = new FormData()
+        formData.append("file", kbPdfFile)
+        formData.append("upload_preset", UPLOAD_PRESET)
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/raw/upload`, {
+          method: "POST",
+          body: formData,
+        })
+        const data = await res.json()
+        if (data.secure_url) {
+          finalUrl = data.secure_url
+        }
+      }
+
+      if (!finalUrl) {
+        alert("Please select a PDF file from PC or enter Cloudinary URL!")
+        setKbUploading(false)
+        return
+      }
+
+      const payload = {
+        categoryId: selectedKbCategory,
+        title: kbTitle.trim(),
+        pdfUrl: finalUrl,
+        updatedAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      }
+
+      if (editingKbId) {
+        await updateDoc(doc(db, "knowledgeBasePdfs", editingKbId), payload)
+        setEditingKbId(null)
+        setPublished("Knowledge Base PDF updated successfully!")
+      } else {
+        await addDoc(collection(db, "knowledgeBasePdfs"), payload)
+        setPublished("Knowledge Base PDF uploaded successfully!")
+      }
+      setKbTitle('')
+      setKbPdfUrl('')
+      setKbPdfFile(null)
+    } catch (err) {
+      alert("Failed to save Knowledge Base PDF.")
+    } finally {
+      setKbUploading(false)
+    }
+  }
+
+  const handleEditKbItem = (item: any) => {
+    setEditingKbId(item.id)
+    setKbTitle(item.title)
+    setKbPdfUrl(item.pdfUrl)
+    setSelectedKbCategory(item.categoryId)
+  }
+
+  const handleDeleteKbItem = async (id: string) => {
+    if (confirm("Are you sure you want to delete this PDF?")) {
+      try {
+        await deleteDoc(doc(db, "knowledgeBasePdfs", id))
+        setPublished("PDF deleted successfully!")
+      } catch (err) {
+        alert("Failed to delete PDF.")
+      }
     }
   }
 
   const [reportDeadline, setReportDeadline] = useState(reportSettings?.deadline || '2026-10-27')
   const [reportDeadlineTime, setReportDeadlineTime] = useState(reportSettings?.deadlineTime || '18:00')
-
-  const [countryName, setCountryName] = useState('')
-  const [docTitle, setDocTitle] = useState('')
-  const [pdfFile, setPdfFile] = useState<File | null>(null)
-  const [uploading, setUploading] = useState(false)
-
-  const CLOUD_NAME = "ddziennkh"
-  const UPLOAD_PRESET = "eduaimers_pdf_preset"
 
   const handlePublishAnnouncement = async () => {
     try {
@@ -805,7 +1181,7 @@ function Admin({ materials, tickerText, setTickerText, activeQuiz, teamScores, s
 
   const handlePublishQuiz = async () => {
     try {
-      const formattedQuestions = questionsList.map(q => {
+      const formattedQuestions = questionsList.map((q: any) => {
         const type = q.type || 'mcq'
         let optionsArr = q.options
         if (typeof optionsArr === 'string') {
@@ -822,15 +1198,18 @@ function Admin({ materials, tickerText, setTickerText, activeQuiz, teamScores, s
           points: Number(q.points || 2)
         }
       })
-      await setDoc(doc(db, "quizzes", "active"), {
+
+      const quizDataToSave = {
         title: quizTitle,
         startDate: quizStartDate,
         startTime: quizStartTime,
         timer: quizTimer,
         questions: formattedQuestions,
         updatedAt: new Date()
-      })
-      setPublished('Advanced multi-type quiz scheduled & published live successfully!')
+      }
+
+      await setDoc(doc(db, "quizzes", "active"), quizDataToSave)
+      setPublished('Quiz schedule and settings updated live successfully!')
     } catch (e: any) {
       alert("Failed to publish quiz: " + e.message)
     }
@@ -854,44 +1233,95 @@ function Admin({ materials, tickerText, setTickerText, activeQuiz, teamScores, s
 
   const handlePdfUpload = async (e: FormEvent) => {
     e.preventDefault()
-    if (!pdfFile || !countryName || !docTitle) {
-      alert("Please fill all fields and select a PDF file!")
+    if (!countryName || !docTitle) {
+      alert("Please fill country name and document title!")
       return
     }
+
     setUploading(true)
     try {
-      const formData = new FormData()
-      formData.append("file", pdfFile)
-      formData.append("upload_preset", UPLOAD_PRESET)
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/raw/upload`, {
-        method: "POST",
-        body: formData,
-      })
-      const data = await res.json()
-      if (!data.secure_url) throw new Error("Cloudinary upload failed")
-      await addDoc(collection(db, "trainingDocuments"), {
+      let finalFileUrl = manualPdfUrl
+
+      if (pdfFile) {
+        const formData = new FormData()
+        formData.append("file", pdfFile)
+        formData.append("upload_preset", UPLOAD_PRESET)
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/raw/upload`, {
+          method: "POST",
+          body: formData,
+        })
+        const data = await res.json()
+        if (data.secure_url) {
+          finalFileUrl = data.secure_url
+        }
+      }
+
+      if (!finalFileUrl) {
+        alert("Please browse a PDF file or enter a Cloudinary PDF link!")
+        setUploading(false)
+        return
+      }
+
+      const payload = {
         country: countryName.trim().toLowerCase(),
         displayCountry: countryName.trim(),
         title: docTitle.trim(),
-        fileUrl: data.secure_url,
+        fileUrl: finalFileUrl,
         createdAt: new Date(),
-      })
-      setPublished('PDF resource published successfully!')
+      }
+
+      if (editingMaterialId) {
+        await updateDoc(doc(db, "trainingDocuments", editingMaterialId), payload)
+        setPublished("Training material updated/replaced successfully!")
+        setEditingMaterialId(null)
+      } else {
+        await addDoc(collection(db, "trainingDocuments"), payload)
+        setPublished("Training material published successfully!")
+      }
+
       setCountryName('')
       setDocTitle('')
+      setManualPdfUrl('')
       setPdfFile(null)
     } catch (error) {
-      alert("Failed to upload PDF.")
+      alert("Failed to publish/update training resource.")
     } finally {
       setUploading(false)
     }
   }
 
-  const recentList = materials.length > 0 ? materials : fallbackMaterials;
+  const handleEditTrainingMaterial = (item: any) => {
+    setEditingMaterialId(item.id)
+    setCountryName(item.displayCountry || item.country || '')
+    setDocTitle(item.title || '')
+    setManualPdfUrl(item.fileUrl || '')
+  }
+
+  const handleDeleteTrainingMaterial = async (id: string) => {
+    if (confirm("Are you sure you want to delete this training material?")) {
+      try {
+        await deleteDoc(doc(db, "trainingDocuments", id))
+        setPublished("Training material deleted successfully!")
+      } catch (e) {
+        alert("Failed to delete training material.")
+      }
+    }
+  }
 
   return <div className="page">
     <PageHeading eyebrow="MANAGEMENT" title="Admin Control Panel" copy="Manage live content, team assessments, and reporting."><span className="admin-role"><Icon name="lock" size={15} /> ADMIN ROLE ONLY</span></PageHeading>
-    <div className="admin-tabs">{[['announcement', 'Live ticker', 'edit'], ['resources', 'PDF resources', 'upload'], ['quiz', 'Quiz builder', 'quiz'], ['reports_admin', 'Report Window', 'clock'], ['team', 'Team monitoring', 'chart']].map(([id, label, icon]) => <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id as typeof tab)}><Icon name={icon as IconName} />{label}</button>)}</div>
+    
+    <div className="admin-tabs">
+      {[
+        ['announcement', 'Live ticker', 'edit'], 
+        ['resources', 'PDF resources', 'upload'], 
+        ['knowledge_admin', 'Knowledge Base PDFs', 'file'],
+        ['quiz', 'Quiz builder', 'quiz'], 
+        ['reports_admin', 'Report Window', 'clock'], 
+        ['team', 'Team monitoring', 'chart']
+      ].map(([id, label, icon]) => <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id as typeof tab)}><Icon name={icon as IconName} />{label}</button>)}
+    </div>
+
     {published && <div className="toast"><Icon name="check" /> {published}<button onClick={() => setPublished('')}><Icon name="close" size={15} /></button></div>}
     
     {tab === 'announcement' && <div className="admin-grid">
@@ -908,22 +1338,139 @@ function Admin({ materials, tickerText, setTickerText, activeQuiz, teamScores, s
 
     {tab === 'resources' && <div className="admin-grid">
       <form onSubmit={handlePdfUpload} className="panel admin-main">
-        <div className="form-section-title"><span><Icon name="upload" /></span><div><h3>Publish a PDF resource</h3><p>Add a country-specific guide to the training library.</p></div></div>
-        <div className="form-grid two">
-          <Field label="Country name" placeholder="Type country name (e.g. Spain)" onChange={(val) => setCountryName(val)} />
-          <Field label="Document title" placeholder="e.g. Visa requirements 2026" onChange={(val) => setDocTitle(val)} />
+        <div className="form-section-title">
+          <span><Icon name="upload" /></span>
+          <div>
+            <h3>{editingMaterialId ? 'Edit / Replace PDF Resource' : 'Publish a PDF Resource'}</h3>
+            <p>Add or update country-specific guides in the training library.</p>
+          </div>
         </div>
-        <div style={{ border: '2px dashed #cbd5e1', padding: '24px', borderRadius: '8px', textAlign: 'center', background: '#f8fafc', marginBottom: '16px' }}>
+
+        <div className="form-grid two">
+          <Field label="Country name" placeholder="Type country name (e.g. Spain)" value={countryName} onChange={(val) => setCountryName(val)} />
+          <Field label="Document title" placeholder="e.g. Visa requirements 2026" value={docTitle} onChange={(val) => setDocTitle(val)} />
+        </div>
+
+        <div style={{ marginTop: '15px', marginBottom: '15px' }}>
+          <Field label="Cloudinary PDF URL (Direct Link)" placeholder="https://res.cloudinary.com/..." value={manualPdfUrl} onChange={(v) => setManualPdfUrl(v)} />
+        </div>
+
+        <div style={{ border: '2px dashed #cbd5e1', padding: '20px', borderRadius: '8px', textAlign: 'center', background: '#f8fafc', marginBottom: '16px' }}>
           <span style={{ display: 'block', marginBottom: '8px' }}><Icon name="upload" size={24} /></span>
           <label style={{ cursor: 'pointer', color: '#2563eb', fontWeight: 'bold', textDecoration: 'underline', display: 'inline-block' }}>
-            Browse PDF File from PC
+            Or Browse PDF File from PC
             <input type="file" accept="application/pdf" style={{ display: 'none' }} onChange={(e) => { if (e.target.files && e.target.files[0]) setPdfFile(e.target.files[0]) }} />
           </label>
-          <p style={{ marginTop: '8px', color: '#64748b', fontSize: '14px' }}>{pdfFile ? `Selected: ${pdfFile.name}` : "PDF only · Max 25 MB"}</p>
+          <p style={{ marginTop: '8px', color: '#64748b', fontSize: '13px' }}>{pdfFile ? `Selected: ${pdfFile.name}` : "PDF file upload"}</p>
         </div>
-        <footer><Button type="submit" disabled={uploading}>{uploading ? "Publishing..." : "Publish resource"}</Button></footer>
+
+        <footer style={{ display: 'flex', gap: '10px' }}>
+          <Button type="submit" disabled={uploading}>{uploading ? "Saving..." : editingMaterialId ? "Update Training Material" : "Publish Resource"}</Button>
+          {editingMaterialId && (
+            <Button variant="secondary" onClick={() => { setEditingMaterialId(null); setCountryName(''); setDocTitle(''); setManualPdfUrl(''); setPdfFile(null); }}>
+              Cancel Edit
+            </Button>
+          )}
+        </footer>
       </form>
-      <aside className="panel recent-uploads"><span className="eyebrow">RECENT UPLOADS</span><h3>Latest resources</h3>{recentList.slice(0, 3).map((item, idx) => <div key={idx}><span>{item.flag || '📄'}</span><p><strong>{item.title}</strong><small>{item.displayCountry || item.country}</small></p></div>)}</aside>
+
+      <aside className="panel recent-uploads">
+        <span className="eyebrow">UPLOADED TRAINING MATERIALS</span>
+        <h3>Manage Materials ({materials.length})</h3>
+        <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+          {materials.length === 0 ? (
+            <p style={{ fontSize: '13px', color: '#94a3b8' }}>No training materials uploaded yet.</p>
+          ) : (
+            materials.map((item: any) => (
+              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #e2e8f0' }}>
+                <div>
+                  <strong style={{ fontSize: '13px', display: 'block' }}>{item.title}</strong>
+                  <small style={{ color: '#64748b' }}>{item.displayCountry || item.country}</small>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={() => handleEditTrainingMaterial(item)} style={{ background: 'none', border: 'none', color: '#d97706', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}>Edit</button>
+                  <button onClick={() => handleDeleteTrainingMaterial(item.id)} style={{ background: 'none', border: 'none', color: '#dc2626', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}>Delete</button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </aside>
+    </div>}
+
+    {tab === 'knowledge_admin' && <div className="panel" style={{ padding: '30px' }}>
+      <div className="form-section-title" style={{ marginBottom: '20px' }}>
+        <span><Icon name="file" /></span>
+        <div>
+          <h3>Quick Knowledge Base PDF Management</h3>
+          <p>Add/edit multiple PDFs under the 4 main knowledge categories via direct PC upload or Cloudinary URL.</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSaveKbPdf} style={{ background: '#f8fafc', padding: '20px', borderRadius: '12px', marginBottom: '30px', border: '1px solid #e2e8f0' }}>
+        <div className="form-grid two" style={{ marginBottom: '15px' }}>
+          <label className="field">
+            <span>Select Category</span>
+            <select value={selectedKbCategory} onChange={(e) => setSelectedKbCategory(e.target.value as any)} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', background: '#fff' }}>
+              <option value="moi">[01] MOI Accepted Country & University List</option>
+              <option value="spouse">[02] Spouse Allowed Flight Countries</option>
+              <option value="visa">[03] Visa Checklist</option>
+              <option value="flowchart">[04] Application-to-Visa Step Flowchart</option>
+              <option value="training">Training Materials</option>
+            </select>
+          </label>
+          <Field label="PDF Document Title" placeholder="e.g. UK MOI Universities 2026" value={kbTitle} onChange={(v) => setKbTitle(v)} />
+        </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <Field label="Cloudinary PDF URL (Optional if uploading file)" placeholder="https://res.cloudinary.com/..." value={kbPdfUrl} onChange={(v) => setKbPdfUrl(v)} />
+        </div>
+
+        <div style={{ border: '2px dashed #cbd5e1', padding: '16px', borderRadius: '8px', textAlign: 'center', background: '#fff', marginBottom: '15px' }}>
+          <label style={{ cursor: 'pointer', color: '#2563eb', fontWeight: 'bold', textDecoration: 'underline', display: 'inline-block' }}>
+            Browse PDF File from PC for Knowledge Base
+            <input type="file" accept="application/pdf" style={{ display: 'none' }} onChange={(e) => { if (e.target.files && e.target.files[0]) setKbPdfFile(e.target.files[0]) }} />
+          </label>
+          <p style={{ marginTop: '6px', color: '#64748b', fontSize: '13px' }}>{kbPdfFile ? `Selected: ${kbPdfFile.name}` : "No file chosen"}</p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <Button type="submit" disabled={kbUploading}>{kbUploading ? "Uploading..." : editingKbId ? 'Update / Replace PDF' : 'Upload & Add PDF'}</Button>
+          {editingKbId && <Button variant="secondary" onClick={() => { setEditingKbId(null); setKbTitle(''); setKbPdfUrl(''); setKbPdfFile(null); }}>Cancel Edit</Button>}
+        </div>
+      </form>
+
+      <div>
+        {[...KNOWLEDGE_CATEGORIES, { id: 'training', badgeNumber: '05', title: 'Training Materials', description: '' }].map((cat) => {
+          const catItems = kbDocuments.filter((d: any) => d.categoryId === cat.id)
+          return (
+            <div key={cat.id} style={{ border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', marginBottom: '16px', background: '#fff' }}>
+              <h4 style={{ fontSize: '15px', fontWeight: 'bold', marginBottom: '10px', color: '#1e293b' }}>
+                [{cat.badgeNumber}] {cat.title} ({catItems.length} PDFs)
+              </h4>
+              {catItems.length === 0 ? (
+                <p style={{ fontSize: '13px', color: '#94a3b8' }}>No PDFs uploaded in this category yet.</p>
+              ) : (
+                <div>
+                  {catItems.map((item: any) => (
+                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '10px 14px', borderRadius: '6px', marginBottom: '6px', border: '1px solid #f1f5f9' }}>
+                      <div>
+                        <strong style={{ fontSize: '14px', color: '#334155' }}>{item.title}</strong>
+                        <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '10px' }}>Updated: {item.updatedAt}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <a href={item.pdfUrl} target="_blank" rel="noreferrer" style={{ color: '#2563eb', fontWeight: 600, fontSize: '13px', textDecoration: 'none' }}>View PDF</a>
+                        <button onClick={() => handleEditKbItem(item)} style={{ background: 'none', border: 'none', color: '#d97706', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>Edit / Replace</button>
+                        <button onClick={() => handleDeleteKbItem(item.id)} style={{ background: 'none', border: 'none', color: '#dc2626', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>Delete</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>}
 
     {tab === 'reports_admin' && <div className="admin-grid">
@@ -933,7 +1480,6 @@ function Admin({ materials, tickerText, setTickerText, activeQuiz, teamScores, s
           <Field label="Deadline Date" type="date" value={reportDeadline} onChange={(val) => setReportDeadline(val)} />
           <Field label="Deadline Time (24h)" type="time" value={reportDeadlineTime} onChange={(val) => setReportDeadlineTime(val)} />
         </div>
-
         <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '20px', marginTop: '10px' }}>
           <h4 style={{ marginBottom: '10px' }}>Manual Portal Controls (On-Demand Override)</h4>
           <div style={{ display: 'flex', gap: '12px' }}>
@@ -951,7 +1497,6 @@ function Admin({ materials, tickerText, setTickerText, activeQuiz, teamScores, s
             }}>Reset to Schedule Timer</Button>
           </div>
         </div>
-
         <footer style={{ marginTop: '20px' }}><Button onClick={() => handleSaveReportSettings()}>Save Deadline Settings</Button></footer>
       </section>
       <aside className="panel admin-side">
@@ -1004,7 +1549,6 @@ function Admin({ materials, tickerText, setTickerText, activeQuiz, teamScores, s
                   setQuestionsList(updated)
                 }} />
               </div>
-
               <label className="field" style={{ marginBottom: '10px' }}><span>Question Text {i + 1}</span>
                 <input value={q.text || ''} placeholder="Enter your question" onChange={(e) => {
                   const updated = [...questionsList]
@@ -1012,7 +1556,6 @@ function Admin({ materials, tickerText, setTickerText, activeQuiz, teamScores, s
                   setQuestionsList(updated)
                 }} />
               </label>
-
               {q.type !== 'short' && (
                 <div style={{ marginBottom: '10px' }}>
                   <label className="field"><span>Options (comma separated 4 options)</span>
@@ -1024,7 +1567,6 @@ function Admin({ materials, tickerText, setTickerText, activeQuiz, teamScores, s
                   </label>
                 </div>
               )}
-
               <div>
                 <label className="field"><span>Correct Answer Key {q.type === 'checkbox' ? '(comma separated exact options)' : ''}</span>
                   <input value={Array.isArray(q.answerKey) ? q.answerKey.join(', ') : (q.answerKey || '')} placeholder={q.type === 'checkbox' ? "Option A, Option C" : "Exact correct option or text"} onChange={(e) => {
@@ -1047,7 +1589,6 @@ function Admin({ materials, tickerText, setTickerText, activeQuiz, teamScores, s
       </section>
     </div>}
     
-    {/* TEAM MONITORING & COUNSELOR ONBOARDING */}
     {tab === 'team' && <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <form onSubmit={handleOnboardCounselor} className="panel" style={{ padding: '20px' }}>
         <div className="form-section-title"><span><Icon name="plus" /></span><div><h3>Onboard New Counselor</h3><p>Create Name, Email, and Password to issue credentials to counselors.</p></div></div>
@@ -1058,17 +1599,16 @@ function Admin({ materials, tickerText, setTickerText, activeQuiz, teamScores, s
         </div>
         <Button type="submit">Onboard & Issue Credentials</Button>
       </form>
-
       <div className="panel team-table">
         <div className="panel-head">
-          <div><span className="eyebrow">TEAM PERFORMANCE</span><h3>Counselor Monitoring, Quiz Scores & Report Approval</h3></div>
+          <div><span className="eyebrow">TEAM PERFORMANCE</span><h3>Counselor Monitoring & Reports</h3></div>
           <Button variant="secondary" icon="download">Export CSV</Button>
         </div>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Counselor</th>
+                <th>Counselor (Click for Details)</th>
                 <th>Report Status</th>
                 <th>Quiz Score</th>
                 <th>Report Review Action</th>
@@ -1077,13 +1617,24 @@ function Admin({ materials, tickerText, setTickerText, activeQuiz, teamScores, s
             </thead>
             <tbody>
               {teamScores.length === 0 ? (
-                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>No counselors onboarded yet. Add counselors above.</td></tr>
+                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>No counselors onboarded yet.</td></tr>
               ) : (
-                teamScores.map((r) => (
-                  <tr key={r.name}>
-                    <td><span className="avatar">{r.avatar}</span><strong>{r.name}</strong></td>
+                teamScores.map((r: any) => (
+                  <tr key={r.email || r.name}>
                     <td>
-                      <span className={`status ${r.reportStatus === 'Approved' ? 'status-submitted' : r.reportStatus === 'Rejected' ? '' : ''}`} style={{ color: r.reportStatus === 'Approved' ? '#16a34a' : r.reportStatus === 'Rejected' ? '#dc2626' : '#d97706', fontWeight: 'bold' }}>
+                      <button 
+                        onClick={() => r.onSelectCounselor?.(r)} 
+                        style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', textAlign: 'left' }}
+                      >
+                        <span className="avatar">{r.avatar}</span>
+                        <div>
+                          <strong style={{ color: '#2563eb', textDecoration: 'underline' }}>{r.name}</strong>
+                          <small style={{ display: 'block', color: '#64748b' }}>{r.email}</small>
+                        </div>
+                      </button>
+                    </td>
+                    <td>
+                      <span className="status" style={{ color: r.reportStatus === 'Approved' ? '#16a34a' : r.reportStatus === 'Rejected' ? '#dc2626' : '#d97706', fontWeight: 'bold' }}>
                         {r.reportStatus || 'Pending Review'}
                       </span>
                     </td>
@@ -1102,7 +1653,7 @@ function Admin({ materials, tickerText, setTickerText, activeQuiz, teamScores, s
                     </td>
                     <td>
                       <Button variant="secondary" onClick={() => {
-                        onGrantAccess(r.name)
+                        onGrantAccess(r.email || r.name)
                         alert(`Quiz re-attempt access granted for ${r.name}!`)
                       }}>Grant Quiz Attempt</Button>
                     </td>
@@ -1146,33 +1697,34 @@ export default function App() {
   const [loggedIn, setLoggedIn] = useState(false)
   const [userRole, setUserRole] = useState<'counselor' | 'admin'>('counselor')
   const [userName, setUserName] = useState('')
+  const [userEmail, setUserEmail] = useState('')
   const [page, setPage] = useState<Page>('dashboard')
   const [pdfData, setPdfData] = useState<{ title: string; url?: string } | null>(null)
   const [menu, setMenu] = useState(false)
   
   const [materials, setMaterials] = useState<any[]>([])
+  const [kbDocuments, setKbDocuments] = useState<any[]>([])
   const [tickerText, setTickerText] = useState("Global Application Day scheduled for Oct 31, 2026 • New Spain IPREM proof rules updated")
   const [activeQuiz, setActiveQuiz] = useState<any>(null)
   const [reportSettings, setReportSettings] = useState<any>({ deadline: '2026-10-27', deadlineTime: '18:00', isOpen: false, isClosed: false })
-
   const [teamScores, setTeamScores] = useState<any[]>([])
+  const [selectedCounselorModal, setSelectedCounselorModal] = useState<any>(null)
 
   const handleScoreSubmit = (scoreStr: string) => {
-    setTeamScores(prev => prev.map(c => c.name === userName ? { ...c, score: scoreStr } : c))
+    setTeamScores(prev => prev.map(c => ((c.email || '').toLowerCase() === (userEmail || '').toLowerCase() || c.name === userName) ? { ...c, score: scoreStr } : c))
   }
 
-  const handleReportSubmit = (reportData: any) => {
-    setTeamScores(prev => prev.map(c => c.name === userName ? { ...c, reportStatus: 'Submitted (Pending Review)' } : c))
+  const handleReportSubmit = (_reportData: any, _pdfUrl: string, _fileName: string) => {
+    setTeamScores(prev => prev.map(c => ((c.email || '').toLowerCase() === (userEmail || '').toLowerCase() || c.name === userName) ? { ...c, reportStatus: 'Submitted (Pending Review)' } : c))
   }
 
   const handleUpdateReportStatus = (counselorName: string, status: string) => {
     setTeamScores(prev => prev.map(c => c.name === counselorName ? { ...c, reportStatus: status } : c))
   }
 
-  // Admin resets quiz lock permanently in Firestore database
-  const handleGrantAccess = async (counselorName: string) => {
+  const handleGrantAccess = async (identifier: string) => {
     try {
-      await setDoc(doc(db, "quiz_attempts", counselorName), {
+      await setDoc(doc(db, "quiz_attempts", (identifier || '').toLowerCase()), {
         submitted: false,
         scoreStr: 'Pending',
         scoreData: null
@@ -1183,48 +1735,41 @@ export default function App() {
   }
 
   useEffect(() => {
-    const fetchDocuments = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, "trainingDocuments"))
-        const docs = querySnapshot.docs.map(doc => doc.data())
-        if (docs.length > 0) setMaterials(docs)
-      } catch (err) {
-        console.error("Error fetching documents:", err)
-      }
-    }
-    fetchDocuments()
+    const unsubTraining = onSnapshot(collection(db, "trainingDocuments"), (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      setMaterials(docs)
+    })
 
-    // Sync counselors list from Cloud Firestore
-    const fetchCounselors = async () => {
-      try {
-        const snapshot = await getDocs(collection(db, "counselors"))
-        const docs = snapshot.docs.map(d => d.data())
-        if (docs.length > 0) {
-          setTeamScores(docs.map(c => ({
-            name: c.name,
-            avatar: c.name.slice(0, 2).toUpperCase(),
-            score: 'Not Attempted',
-            reportStatus: 'Pending Review'
-          })))
-        }
-      } catch (e) {
-        console.error("Error fetching counselors:", e)
+    const unsubKb = onSnapshot(collection(db, "knowledgeBasePdfs"), (snapshot) => {
+      const kbList = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+      setKbDocuments(kbList)
+    })
+
+    const unsubCounselors = onSnapshot(collection(db, "counselors"), (snapshot) => {
+      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+      if (docs.length > 0) {
+        setTeamScores(docs.map((c: any) => ({
+          name: c.name,
+          email: c.email,
+          avatar: (c.name || 'CU').slice(0, 2).toUpperCase(),
+          score: c.score || 'Not Attempted',
+          reportStatus: 'Pending Review',
+          reportsHistory: c.reportsHistory || [],
+          onSelectCounselor: (counselorObj: any) => setSelectedCounselorModal(counselorObj)
+        })))
       }
-    }
-    fetchCounselors()
+    })
 
     const unsubAnnouncement = onSnapshot(doc(db, "announcements", "live"), (docSnap) => {
       if (docSnap.exists() && docSnap.data().text) {
         setTickerText(docSnap.data().text)
       }
     })
-
     const unsubQuiz = onSnapshot(doc(db, "quizzes", "active"), (docSnap) => {
       if (docSnap.exists()) {
         setActiveQuiz(docSnap.data())
       }
     })
-
     const unsubReportSettings = onSnapshot(doc(db, "settings", "reports"), (docSnap) => {
       if (docSnap.exists()) {
         setReportSettings(docSnap.data())
@@ -1232,6 +1777,9 @@ export default function App() {
     })
 
     return () => {
+      unsubTraining()
+      unsubKb()
+      unsubCounselors()
       unsubAnnouncement()
       unsubQuiz()
       unsubReportSettings()
@@ -1241,18 +1789,31 @@ export default function App() {
   const content = useMemo(() => {
     if (page === 'dashboard') return <Dashboard setPage={setPage} openPdf={(t, u) => setPdfData({ title: t, url: u })} materials={materials} userName={userName} activeQuiz={activeQuiz} reportSettings={reportSettings} />
     if (page === 'training') return <Training openPdf={(t, u) => setPdfData({ title: t, url: u })} materials={materials} />
-    if (page === 'knowledge') return <Knowledge openPdf={(t) => setPdfData({ title: t })} />
-    if (page === 'quiz') return <Quiz activeQuiz={activeQuiz} counselorName={userName} onScoreSubmit={handleScoreSubmit} />
-    if (page === 'reports') return <Reports reportSettings={reportSettings} onReportSubmit={handleReportSubmit} userName={userName} />
+    if (page === 'knowledge') return <Knowledge kbDocuments={kbDocuments} />
+    if (page === 'quiz') return <Quiz activeQuiz={activeQuiz} counselorEmail={userEmail} userName={userName} onScoreSubmit={handleScoreSubmit} />
+    if (page === 'reports') return <Reports reportSettings={reportSettings} onReportSubmit={handleReportSubmit} userName={userName} counselorEmail={userEmail} />
     if (page === 'analytics') return <Analytics />
-    return <Admin materials={materials} tickerText={tickerText} setTickerText={setTickerText} activeQuiz={activeQuiz} teamScores={teamScores} setTeamScores={setTeamScores} onGrantAccess={handleGrantAccess} reportSettings={reportSettings} setReportSettings={setReportSettings} onUpdateReportStatus={handleUpdateReportStatus} />
-  }, [page, materials, tickerText, activeQuiz, teamScores, reportSettings, userName])
+    return <Admin 
+      materials={materials} 
+      tickerText={tickerText} 
+      setTickerText={setTickerText} 
+      activeQuiz={activeQuiz} 
+      teamScores={teamScores} 
+      setTeamScores={setTeamScores} 
+      onGrantAccess={handleGrantAccess} 
+      reportSettings={reportSettings} 
+      setReportSettings={setReportSettings} 
+      onUpdateReportStatus={handleUpdateReportStatus} 
+      kbDocuments={kbDocuments} 
+    />
+  }, [page, materials, tickerText, activeQuiz, teamScores, reportSettings, userName, userEmail, kbDocuments])
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }) }, [page])
 
-  if (!loggedIn) return <Login onLogin={(role, name) => {
+  if (!loggedIn) return <Login onLogin={(role, name, email) => {
     setUserRole(role)
     if (name) setUserName(name)
+    if (email) setUserEmail(email)
     setPage(role === 'counselor' ? 'dashboard' : 'admin')
     setLoggedIn(true)
   }} />
@@ -1264,5 +1825,6 @@ export default function App() {
       {content}
     </main>
     {pdfData && <PdfModal title={pdfData.title} fileUrl={pdfData.url} onClose={() => setPdfData(null)} />}
+    {selectedCounselorModal && <CounselorDetailModal counselor={selectedCounselorModal} onClose={() => setSelectedCounselorModal(null)} />}
   </div>
 }
